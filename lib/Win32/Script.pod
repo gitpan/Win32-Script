@@ -385,8 +385,9 @@ parameters of sub are the same.
 
 =item FileSpace ( ?filesystem ) -> free disk space in bytes
 
-Returns free disk space in bytes for specified dir. 
-Uses `\%COMSPEC\% /c dir $dir`.
+Returns free disk space in bytes for specified dir.
+Users L<Win32::API|Win32/API>('kernel32', 'GetDiskFreeSpaceEx'||'GetDiskFreeSpace'...)
+or `\%COMSPEC\% /c dir $dir`.
 
 
 =item FileTrack ( ?'-it!cdrt', sourceDir, destDir, ?sub(\@stat,path,name)) -> arcDir
@@ -447,6 +448,13 @@ via  L<Win32::OLE|Win32/OLE>->new(@_) call
 
 Gets L<Win32::OLE|Win32/OLE> object
 via  L<Win32::OLE|Win32/OLE>->GetObject(@_) call
+
+
+=item OLEIn ( OLE object | OLEGet args | OLECreate args ) -> list of OLE objects
+
+L<Win32::OLE|Win32/OLE>::in(object) call to list OLE containers.
+Example: foreach my $e (OLEIn('WinNT://domain/computer')) {print $e->{Class},"\t",$e->{Name},"\n"}
+
 
 
 =item OrArgs (sub, arg,...) -> succeeded arg
@@ -623,10 +631,12 @@ See also 'wbemtest.exe', Web Based Enterprise Management (WBEM).
 
 Creates or returns Windows Script Host L<Win32::OLE|Win32/OLE> object - 
 'Shell', 'Network', 'Controller',...
+May be used also 'FSO' for 'Scripting.FileSystemObject' object.
 Object created will be stored within %WScript hash for future reuse,
 first undefined argument prohibits this.
 Last optional arguments are used for C<OLECreate> call.
-Example: WScript('Network')->ComputerName.
+Example: print WScript('Network')->ComputerName, "\t",
+WScript('FSO')->GetDrive('c:')->AvailableSpace, "\n".
 See also L<Win32::OLE::Browser|Win32/OLE/Browser/Browser> for
 Windows Script Host Object Model.
 
@@ -639,6 +649,42 @@ Windows Script Host Object Model.
 =head1 VERSION
 
 
+
+=head2 12-22/04/2002
+
+=over
+
+=item Changed
+
+FileSpace - Win32::API('kernel32', 'GetDiskFreeSpaceEx' ||'GetDiskFreeSpace'...)
+attempted before using 'dir' command.
+
+WScript - May be used also 'FSO' for 'Scripting.FileSystemObject' object.
+
+
+=back
+
+
+
+
+=head2 26/03/2002
+
+=over
+
+=item Changed
+
+NetUse - optimized again
+
+
+=item New
+
+C<OLEIn>
+
+
+=back
+
+
+
 =head2 30/11/2001
 
 =over
@@ -647,6 +693,7 @@ Windows Script Host Object Model.
 
 Renamed from C<Script> to C<Win32::Script>, 
 thanks to Jonathan Stowe <gellyfish@gellyfish.com> 
+
 
 =item New
 
