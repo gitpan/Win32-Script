@@ -1,17 +1,15 @@
 # Win32::Script - System administrator`s library
 #           - for login and application startup scripts, etc
 #
-# makarow, 12/04/2003, 06/02/2003, 23/01/2003, 
-# and demed, 12-22/04/2002, 26/03/2002, 
-# 30/11/2001, 15/11/2001, 23-27/09/2001, 26/02/2001,
-# 25/09-27/10/2000,..., 18/02/99 13:04
+# makarow and demed
+# ..., 18/02/99 13:04
 #
 package Win32::Script;
 require 5.000;
 require Exporter;
 use     Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-$VERSION = '0.56';
+$VERSION = '0.57';
 @ISA = qw(Exporter);
 @EXPORT = qw(CPTranslate Die Echo FileACL FileCompare FileCopy FileCRC FileCwd FileDelete FileDigest FileEdit FileFind FileGlob FileHandle FileIni FileLnk FileMkDir FileNameMax FileNameMin FileRead FileSize FileSpace FileTrack FileWrite FTPCmd GUIMsg NetUse OLECreate OLEGet OLEIn OrArgs Pause Platform Print Registry Run RunInf RunKbd SMTPSend StrTime UserEnvInit UserPath WMIService WScript);
 @EXPORT_OK = qw(FileLog TrAnsi2Oem TrOem2Ansi Try(@) TryHdr);
@@ -138,7 +136,7 @@ Try eval { local $ErrorDie =2;
  my ($src,$dst) =@_; if ($^O eq 'MSWin32') {$src =~tr/\//\\/; $dst =~tr/\//\\/}
  if ($^O ne 'dos' && $] >=5.006 && $src !~/[?*]/ && $dst !~/[?*]/ && -s $src <2*1024*1024 && !-d $src 
     && (-e $dst ||($opt !~/d/ && $dst =~/(.+)[\\\/][^\\\/]+$/ ? -d $1 : 0))) {
-    $dst .=($^O eq 'MSWin32' ? '\\' : '/') .($src =~/[\\\/]([^\\\/]+)$/ ? $1 : $src) if -d $dst;
+    $dst .=($dst =~/[\\\/]$/ ? '' : $^O eq 'MSWin32' ? '\\' : '/') .($src =~/[\\\/]([^\\\/]+)$/ ? $1 : $src) if -d $dst;
     Echo("CopyFile('$src', '$dst')");
     ((-f $dst ?unlink($dst) :1) && ($^O eq 'MSWin32' ?Win32::CopyFile($src, $dst, 1) :eval("use File::Copy; File::Copy::copy('$src','$dst')")))
     ||croak("CopyFile('$src','$dst')->$!")
@@ -232,7 +230,7 @@ Try eval { local $ErrorDie =2;
        $mtd =0;
        foreach my $row (FileRead($file)) {
           $_ =$row;
-          $sct =$1 if /^ *[\[]([^\]]*)/;
+          $sct =$1 if /^\s*[\[]([^\]]*)/;
           &{$sub}($sct, @v); # &{$sub}($sct, @v);
           $mtd =1 if !defined($_) || $_ ne $row;
           push(@dta, $_) if defined($_);
@@ -245,7 +243,7 @@ Try eval { local $ErrorDie =2;
        return(($fileto eq $_) || FileWrite($file, $_));
  }
                                      # '-i ext' or 'from, to'
- $fileto ="$file.$1" if $opt =~/^\-i *(.*)/i;
+ $fileto ="$file.$1" if $opt =~/^\-i\s*(.*)/i;
  if (!-f $file && -f $fileto) {
     Echo("copy", $fileto, $file);
     eval ("use File::Copy");
@@ -257,7 +255,7 @@ Try eval { local $ErrorDie =2;
  while (!eof(IN)) {
    defined($_ =<IN>) || croak("Чтение '<$file': $!");
    chomp;
-   $sct =$1 if /^ *[\[]([^\]]*)/;
+   $sct =$1 if /^\s*[\[]([^\]]*)/;
    &{$sub}(@v); # &{$sub}($sct, @v);
    !defined($_) || print(OUT $_,"\n") || croak(($Language =~/ru/i ?'Запись' :'Writing')." '>$fileto': $!");
  }
@@ -284,7 +282,7 @@ Try eval { local $ErrorDie =2;
          $sub =$dir; next
    }
    my $fs;
-   foreach my $elem (FileGlob($dir)) {
+   foreach my $elem ($opt =~/[^!]*i/i ?eval{FileGlob($dir)} :FileGlob($dir)) {
      $_ =$elem;
      my @stat =stat($elem);
      my @nme  =(/^(.*)[\/\\]([^\/\\]+)$/ ? ($1,$2) : ('',''));
@@ -371,10 +369,10 @@ Try eval { local $ErrorDie =2;
  if (scalar(@_)<=0) {     
     my %dta;
     foreach my $row (@ini) {
-      $row =~/^ *(.*?) *$/; $row =$1;
+      $row =~/^\s*(.*?)\s*$/; $row =$1;
       if    ($row =~/^[\[]/i) {$sct =$row; $dta{$sct}={}}
       elsif ($row =~/^[;]/i)  {}
-      else  {$row =~/^([^\=]*?) *= *(.*)/i; $dta{$sct}->{$1}=$2;}
+      else  {$row =~/^([^\=]*?)\s*=\s*(.*)/i; $dta{$sct}->{$1}=$2;}
     }
     return(\%dta);
  }
@@ -384,38 +382,38 @@ Try eval { local $ErrorDie =2;
  #     ['[section]',op], [';comment',op], [data,value,op]
  # op: '+'set (default), '-'del, ';'comment, 'i'nitial vaue, 'o'ptional value
  foreach my $row (@_) {   
-   if    ((ref($row) ? $$row[0] : $row) =~/^ *[\[]/i) {
+   if    ((ref($row) ? $$row[0] : $row) =~/^\s*[\[]/i) {
          $sct =ref($row) ? $$row[0] : $row; $nme =undef; $val =undef;
          $op  =ref($row) ? $$row[1] || '+' : '+';
          $isct=-1;
          for(my $i =0; $i <=$#ini; $i++) {
            next if !$ini[$i];
-           if (index(($ini[$i]=~/^ *(.*?) *$/,uc($1)),uc($sct))>=0) {$isct =$i; last};
+           if (index(($ini[$i]=~/^\s*(.*?)\s*$/,uc($1)),uc($sct))>=0) {$isct =$i; last};
          }
          # print "$sct : $isct : ".($isct==-1 ? "" : $ini[$isct])."\n";
          if    ($op =~/[\+i]/i && $isct ==-1) {$mod =1; push(@ini, $sct); $isct =$#ini}
          elsif ($isct ==-1)                   {}
          elsif ($op =~/[\;]/i) {
                $mod =1; $ini[$isct] =';' .$ini[$isct];
-               for(my $i =$isct+1; $i <=$#ini && $ini[$i] !~/^ *[\[]/i; $i++) {
+               for(my $i =$isct+1; $i <=$#ini && $ini[$i] !~/^\s*[\[]/i; $i++) {
                  $ini[$i] =';' .$ini[$i]
                }
          }
          elsif ($op =~/[\-]/i) {
                $mod =1; undef($ini[$isct]);
-               for(my $i =$isct+1; $i <=$#ini && $ini[$i] !~/^ *[\[]/i; $i++) {
+               for(my $i =$isct+1; $i <=$#ini && $ini[$i] !~/^\s*[\[]/i; $i++) {
                  undef($ini[$i])
                }
          }
    }
-   elsif ((ref($row) ? $$row[0] : $row) =~/^ *[\;]/i) {
+   elsif ((ref($row) ? $$row[0] : $row) =~/^\s*[\;]/i) {
          $nme =ref($row) ? $$row[0] : $row; $val =undef;
          $op  =ref($row) ? $$row[1] || '+' : '+';
          $inme=-1; $iins =$#ini +1;
          for(my $i =$isct+1; $i <=$#ini; $i++) {
            next if !$ini[$i];
-           if ($ini[$i] =~/^ *[\[]/i) {$iins =$i; last}
-           if (index(($ini[$i]=~/^ *(.*?) *$/,uc($1)),uc($nme))>=0) {$inme =$i; last}
+           if ($ini[$i] =~/^\s*[\[]/i) {$iins =$i; last}
+           if (index(($ini[$i]=~/^\s*(.*?)\s*$/,uc($1)),uc($nme))>=0) {$inme =$i; last}
          }
          if    ($op =~/[\-]/i && $inme !=-1) {$mod =1; undef($ini[$inme])}
          elsif ($op =~/[\+]/i && $inme ==-1) {$mod =1; splice(@ini, $iins, 0, $nme)}
@@ -426,9 +424,9 @@ Try eval { local $ErrorDie =2;
          $inme=-1; $iins =$#ini +1; $val1='';
          for(my $i =$isct+1; $i <=$#ini; $i++) {
            next if !$ini[$i];
-           if ($ini[$i] =~/^ *[\[]/i) {$iins =$i; last}
-           if (index(($ini[$i]=~/^ *(.*?) *$/,uc($1)),uc($nme))>=0) 
-              {$inme =$i; $val1 =$1 if $ini[$i]=~/= *(.*?) *$/i; last}
+           if ($ini[$i] =~/^\s*[\[]/i) {$iins =$i; last}
+           if (index(($ini[$i]=~/^\s*(.*?)\s*$/,uc($1)),uc($nme))>=0) 
+              {$inme =$i; $val1 =$1 if $ini[$i]=~/=\s*(.*?)\s*$/i; last}
          }
          # print "$nme=>$val : [$inme..$iins] : $val1\n";
          if    ($op =~/[\+i]/i  && $inme ==-1)  {$mod =1; splice(@ini, $iins, 0, "$nme=$val")}
@@ -818,7 +816,7 @@ Try eval { local $ErrorDie =2;
           ($$Registry{\'LMachine\\Software\\Microsoft\\Windows\\CurrentVersion\\\\SubVersionNumber\'} || $$Registry{\'LMachine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\\\CurrentBuildNumber\'} || \'\')
           ; $v =~s/ //ig; $v')
    : '')
-   || (`\%COMSPEC\% /c ver` =~/(Version|ерсия) *([^ \]]+)/im ? $2 : '');
+   || (`\%COMSPEC\% /c ver` =~/(Version|ерсия)\s*([^ \]]+)/im ? $2 : '');
    (@_ >1 ? [split(/\./,$v)]->[$_[1]] ||'' : $v);
  }
  elsif ($_[0] =~/^(patch)/i) {
@@ -839,7 +837,7 @@ Try eval { local $ErrorDie =2;
    ? lc($ENV{COMPUTERNAME})
    : $^O eq 'MSWin32'
      ? eval{Win32::NodeName()} ||lc(eval('use Win32::TieRegistry; $$Registry{\'LMachine\\\\System\\\\CurrentControlSet\\\\Control\\\\ComputerName\\\\ComputerName\\\\\\\\ComputerName\'}'))
-     : `net config` =~/(Computer name|Компьютер) *\\*([^ ]+)$/im 
+     : `net config` =~/(Computer name|Компьютер)\s*\\*([^ ]+)$/im 
        ? lc($2)
        : Platform('host');
  }
@@ -857,7 +855,7 @@ Try eval { local $ErrorDie =2;
   getlogin()
   ||($^O eq 'MSWin32' ? eval{Win32::LoginName()}
                         || lc(eval("use Win32::TieRegistry; \$\$Registry{'LMachine\\\\System\\\\CurrentControlSet\\\\Control\\\\\\\\Current User'}"))
-                        || (`net config` =~/(User name|Пользователь) *([^ ]+)$/im ? $2 : '')
+                        || (`net config` =~/(User name|Пользователь)\s*([^ ]+)$/im ? $2 : '')
                       : '') 
   ||$ENV{USERNAME} ||$ENV{LOGNAME} ||''
  }
@@ -1126,7 +1124,7 @@ Try eval { local $ErrorDie =2;
               || ($u =~/^\.*default$/i && lc($pd) eq 'start menu' 
                  ? $Registry->{$hu .($e =$pd ='Programs')} : '')
               || $Registry->{$ha .$pd});
-    $r =~s/ *$//i;
+    $r =~s/\s*$//i;
     !$e ? $r : $r =~/^(.*)[\\\/][^\\\/]*$/i ? $1 : '';
  }
 },''}

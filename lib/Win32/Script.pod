@@ -650,9 +650,40 @@ Windows Script Host Object Model.
 =head1 VERSION
 
 
+=head2 10/10/2004
+
+Version 0.57 released
+
+
+
+=head2 06/10/2004
+
+=over
+
+=item Fixed
+
+' *' replaced with '\s*' in all regexps.
+
+=back
+
+
+
+=head2 02/06/2003
+
+=over
+
+=item Fixed
+
+C<FileCopy>() - L<Win32::CopyFile|Win32> destination path catenation delimiter doubling
+
+=back
+
+
+
 =head2 05/05/2003
 
 Version 0.56 released
+
 
 
 =head2 29/04/2003
