@@ -1,0 +1,6 @@
+MANIFEST
+Makefile.PL
+readme
+lib/Win32/Script.pm
+lib/Win32/Script.pod
+test.pl
