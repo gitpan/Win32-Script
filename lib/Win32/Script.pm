@@ -1,21 +1,17 @@
 # Win32::Script - System administrator`s library
 #           - for login and application startup scripts, etc
 #
-# makarow and demed, 12-22/04/2002, 26/03/2002, 
+# makarow, 12/04/2003, 06/02/2003, 23/01/2003, 
+# and demed, 12-22/04/2002, 26/03/2002, 
 # 30/11/2001, 15/11/2001, 23-27/09/2001, 26/02/2001,
-# 25/09-27/10/2000, 31/07-15/09/2000, 03-05/07/2000, 
-# 16-17/06/2000, 08/05/2000, 02/04/2000, 25/03/2000, 12-28/02/2000, 
-# 16/12/99, 09/12/99, 05/12/99, 24/11/99, 08/11-19/10/99, 
-# 02/07/99, 28/06/99, 23/06/99, 15/06/99, 01/04/99, 25/03/99, 23/03/99, 
-# 20/03/99, 19/03/99, 17/03/99, 15/03/99, 13/03/99, 12/03/99, 09/03/99, 
-# 06/03/99, 03/03/99, 02/03/99, 01/03/99, 27/02/99, 24/02/99, 18/02/99 13:04
+# 25/09-27/10/2000,..., 18/02/99 13:04
 #
 package Win32::Script;
 require 5.000;
 require Exporter;
 use     Carp;
 use vars qw($VERSION @ISA @EXPORT @EXPORT_OK %EXPORT_TAGS);
-$VERSION = '0.55';
+$VERSION = '0.56';
 @ISA = qw(Exporter);
 @EXPORT = qw(CPTranslate Die Echo FileACL FileCompare FileCopy FileCRC FileCwd FileDelete FileDigest FileEdit FileFind FileGlob FileHandle FileIni FileLnk FileMkDir FileNameMax FileNameMin FileRead FileSize FileSpace FileTrack FileWrite FTPCmd GUIMsg NetUse OLECreate OLEGet OLEIn OrArgs Pause Platform Print Registry Run RunInf RunKbd SMTPSend StrTime UserEnvInit UserPath WMIService WScript);
 @EXPORT_OK = qw(FileLog TrAnsi2Oem TrOem2Ansi Try(@) TryHdr);
@@ -29,7 +25,7 @@ $ErrorDie   =0;   # die on errors: 1
 $Error      ='';  # error result
 $FileLog    ='';  # log file name (LOG handle) for Echo, Print, errors...
 $Print      ='';  # external print routine hardlink
-$Language   ='';  # language of user interaction
+$Language   ='';  # language of user interaction, may be '' or 'ru'
 %WScript    =();  # Windows Script Host objects
 
 # FileHandle(\*STDOUT,sub{$| =1});
@@ -137,33 +133,27 @@ sub FileCompare {
 ###
 sub FileCopy {
 Try eval { local $ErrorDie =2;
- my $opt =$_[0] =~/^-/i ? shift : '';
- my ($src,$dst) =@_;
+ my $opt =$_[0] =~/^-/i ?shift :''; $opt =~s/-//g;
  # 'd'irectory or 'f'ile hint; 'r'ecurse subdirectories, 'i'gnore errors
- $opt =~s/-//g;
- if ($ENV{OS} && $ENV{OS} =~/Windows_NT/i) {
-    $src =~tr/\//\\/;
-    $opt ="${opt}Z";
-    $opt ="${opt}Y" if (eval('use Win32::TieRegistry; $$Registry{\'LMachine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\\\CurrentVersion\'}') ||0) >=5
+ my ($src,$dst) =@_; if ($^O eq 'MSWin32') {$src =~tr/\//\\/; $dst =~tr/\//\\/}
+ if ($^O ne 'dos' && $] >=5.006 && $src !~/[?*]/ && $dst !~/[?*]/ && -s $src <2*1024*1024 && !-d $src 
+    && (-e $dst ||($opt !~/d/ && $dst =~/(.+)[\\\/][^\\\/]+$/ ? -d $1 : 0))) {
+    $dst .=($^O eq 'MSWin32' ? '\\' : '/') .($src =~/[\\\/]([^\\\/]+)$/ ? $1 : $src) if -d $dst;
+    Echo("CopyFile('$src', '$dst')");
+    ((-f $dst ?unlink($dst) :1) && ($^O eq 'MSWin32' ?Win32::CopyFile($src, $dst, 1) :eval("use File::Copy; File::Copy::copy('$src','$dst')")))
+    ||croak("CopyFile('$src','$dst')->$!")
  }
- elsif ($^O eq 'MSWin32') {
-    $src =~tr/\//\\/;
-    $dst =~tr/\//\\/
- }
- if    ($^O ne 'MSWin32' && $^O ne 'dos') {
-    # Echo('copy', @_);
-    # eval ('use File::Copy; File::Copy::copy(\@_)') || croak($!);
-    $opt =~ tr/fd//;
-    $opt ="-${opt}p";
-    $opt =~ tr/ri/Rf/;
-    Run('cp', $opt, @_)
- }
- else {
+ elsif ($^O =~/MSWin32|dos/) {
+    $opt .='Z' .((eval{(Win32::GetOSVersion())[1]} ||eval('use Win32::TieRegistry; $$Registry{\'LMachine\\Software\\Microsoft\\Windows NT\\CurrentVersion\\\\CurrentVersion\'}') ||0) >=5 ?'Y' :'')
+	if ($ENV{OS}||'') =~/Windows_NT/i;
     my $rsp =($opt =~/d/i ? 'D' : $opt =~/f/i ? 'F' : '');
     $opt =~s/(r)/SE/i; $opt =~s/(i)/C/i; $opt =~s/[fd]//ig; $opt =~s/(.{1})/\/$1/gi;
     my @cmd =('xcopy',"/H/R/K/Q$opt","\"$src\"","\"$dst\"");
     push @cmd, sub{print($rsp)} if $rsp && ($ENV{OS} && $ENV{OS}=~/windows_nt/i ? !-e $dst : !-d $dst);
     Run(@cmd)
+ }
+ else {
+    $opt =~ tr/fd//; $opt ="-${opt}p"; $opt =~ tr/ri/Rf/; Run('cp', $opt, @_)
  }
 },0}
 
@@ -848,7 +838,7 @@ Try eval { local $ErrorDie =2;
    $ENV{COMPUTERNAME}
    ? lc($ENV{COMPUTERNAME})
    : $^O eq 'MSWin32'
-     ? lc(eval('use Win32::TieRegistry; $$Registry{\'LMachine\\\\System\\\\CurrentControlSet\\\\Control\\\\ComputerName\\\\ComputerName\\\\\\\\ComputerName\'}'))
+     ? eval{Win32::NodeName()} ||lc(eval('use Win32::TieRegistry; $$Registry{\'LMachine\\\\System\\\\CurrentControlSet\\\\Control\\\\ComputerName\\\\ComputerName\\\\\\\\ComputerName\'}'))
      : `net config` =~/(Computer name|Компьютер) *\\*([^ ]+)$/im 
        ? lc($2)
        : Platform('host');
@@ -865,7 +855,7 @@ Try eval { local $ErrorDie =2;
  }
  elsif ($_[0] =~/^user$/i) {
   getlogin()
-  ||($^O eq 'MSWin32' ? Win32::LoginName() 
+  ||($^O eq 'MSWin32' ? eval{Win32::LoginName()}
                         || lc(eval("use Win32::TieRegistry; \$\$Registry{'LMachine\\\\System\\\\CurrentControlSet\\\\Control\\\\\\\\Current User'}"))
                         || (`net config` =~/(User name|Пользователь) *([^ ]+)$/im ? $2 : '')
                       : '') 
@@ -1069,12 +1059,11 @@ Try eval { local $ErrorDie =2;
  my $os  =Platform('os');
 
  if ($opt =~/n/i && (lc($os) ne 'windows_nt')){
-    (!$ENV{OS} || $opt =~/y/i)  && ($ENV{OS} =$os)
-                                && Run('winset',"OS=$ENV{OS}");
-    (!$ENV{COMPUTERNAME} || $opt =~/y/i) && ($ENV{COMPUTERNAME} =Platform('name'))
-                                         && Run('winset',"COMPUTERNAME=$ENV{COMPUTERNAME}");
-    (!$ENV{USERNAME} || $opt =~/y/i) && ($ENV{USERNAME} =Platform('user'))
-                                     && Run('winset',"USERNAME=$ENV{USERNAME}"); # may be wrong after relogon!
+    foreach my $e (['OS'=>$os],['COMPUTERNAME'=>Platform('name')],['USERNAME'=>Platform('user')]) {
+       (!$ENV{$e->[0]} || $opt =~/y/i)  
+     && ($ENV{$e->[0]} =$e->[1])
+     && Run('winset',$e->[0] .'=' .$e->[1])
+    }
  }
  return($ENV{USERNAME}) if $opt !~/h/i;
 
@@ -1086,7 +1075,7 @@ Try eval { local $ErrorDie =2;
  if (!-d $du) {
     FileMkDir($du, 0700) ||return(0);
     if ($os eq 'windows_nt') {
-       Run('cacls',$du,'/E','/C','/G',"$ENV{USERDOMAIN}\\$u:F");
+       Run('cacls',$du,'/E','/C','/P',"$ENV{USERDOMAIN}\\$u:F");
        eval('use Win32::FileSecurity');
        my %acl; Win32::FileSecurity::Get($du,\%acl);
        foreach my $k (keys(%acl)) {
@@ -1103,10 +1092,11 @@ Try eval { local $ErrorDie =2;
  Registry($ru .'Personal',$rp);
  Registry($ru .'My Pictures',$rp .'\\My Pictures');
  $pu =~s/[\\]/\//g if $os eq 'windows_nt';
- if (lc($ENV{HOME}||'?') ne lc($pu)) {
-    $ENV{HOME} =$pu;
-    if   ($os eq 'windows_nt'){Run('setx','HOME',$ENV{HOME})}
-    else {Run('winset','HOME='.$ENV{HOME})}
+ foreach my $e (['HOME'=>$pu], ['HOMEDOCS'=>$rp]) {
+   next if lc($ENV{$e->[0]}||'?') eq lc($e->[1]);
+   $ENV{$e->[0]} =$e->[1];
+   if   ($os eq 'windows_nt'){Run('setx',$e->[0],$e->[1])}
+   else {Run('winset',$e->[0] .'=' .$e->[1])}
  }
  1;
 },0}

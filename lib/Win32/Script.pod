@@ -599,7 +599,8 @@ Option 'h' works if 'c:/Home' directory exists. It creates directory
 sets value for $$Registry{'CUser\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\User Shell Folders\\\\Personal'}
 to 'c:/Home/Username' or 'c:/Home/Work' (for systems with single user profile),
 sets 'My Pictures' based on 'Personal',
-sets 'HOME' environment variable to $ENV{USERPROFILE}
+sets 'HOME' environment variable to $ENV{USERPROFILE},
+sets 'HOMEDOCS' environment variable to 'Personal'
 
 
 =item UserPath (user) -> home dir
@@ -649,6 +650,75 @@ Windows Script Host Object Model.
 =head1 VERSION
 
 
+=head2 05/05/2003
+
+Version 0.56 released
+
+
+=head2 29/04/2003
+
+=over
+
+=item Fixed
+
+C<FileCopy>() - considered perl version, improved L<Win32::CopyFile|Win32> condition
+
+=back
+
+
+
+=head2 12/04/2003
+
+=over
+
+=item Changed
+
+C<FileCopy>() - using L<Win32::CopyFile|Win32> when possible
+
+=back
+
+
+
+=head2 26/02/2003
+
+=over
+
+=item Changed
+
+C<FileCopy>() - added C<Win32::GetOSVersion> prior to reading this from Registry
+
+C<UserEnvInit>() - '/P' C<cacls> key instead of '/G' for home directory owner
+
+=back
+
+
+=head2 06/02/2003
+
+=over
+
+=item Changed
+
+C<UserEnvInit>() - creates 'HOMEDOCS' environment variable; code restructured
+
+
+=back
+
+
+
+
+=head2 23/01/2003
+
+=over
+
+=item Changed
+
+Platform('name') - eval{Win32::NodeName()} added, 
+Platform('user') - eval{Win32::LoginName()} bracketed.
+
+
+=back
+
+
 
 =head2 12-22/04/2002
 
@@ -691,9 +761,7 @@ C<OLEIn>
 
 =item Changed
 
-Renamed from C<Script> to C<Win32::Script>, 
-thanks to Jonathan Stowe <gellyfish@gellyfish.com> 
-
+None
 
 =item New
 
@@ -1070,6 +1138,6 @@ exploitation.
 
 =head1 AUTHOR
 
-Andrew V Makarow <makarow@mail.com>, Denis E Medvedyuk <demed@mail.com>
+Andrew V Makarow <makarow@mail.com>
 
 =cut
